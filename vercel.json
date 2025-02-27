@@ -1,0 +1,8 @@
+{
+    "functions": {
+      "api/cleanup/route.js": {
+        "schedule": "0 0 * * *"
+      }
+    }
+  }
+  
