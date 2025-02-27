@@ -1,8 +1,8 @@
 {
-    "functions": {
-      "api/cleanup/route.js": {
-        "schedule": "0 0 * * *"
-      }
+  "crons": [
+    {
+      "path": "/api/cleanup",
+      "schedule": "0 0 * * *"
     }
-  }
-  
+  ]
+}
