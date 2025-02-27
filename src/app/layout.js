@@ -19,7 +19,7 @@ export const metadata = {
   openGraph: {
     title: "Best YouTube Video Downloader | Fast & Free Download",
     description: "Download YouTube videos in high quality with ease. No software required, free and fast!",
-    url: "https://youtube-video-downloader.vercel.app",
+    url: "https://youtube-video-downloader-masbro.vercel.app",
     siteName: "YouTube Downloader",
     type: "website",
     images: [
