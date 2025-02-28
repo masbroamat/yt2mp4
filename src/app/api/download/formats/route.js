@@ -18,7 +18,9 @@ const defaultOptions = {
   noCheckCertificates: true,
   preferFreeFormats: true,
   youtubeSkipDashManifest: true,
+  cookies: path.join(process.cwd(), 'cookies.txt') // Add this line
 };
+
 
 // Set YTDL_EXECUTABLE to force usage of your binary.
 process.env.YTDL_EXECUTABLE = path.join(
