@@ -10,6 +10,21 @@
       "memory": 1024,
       "maxDuration": 60,
       "includeFiles": "bin/**"
+    }, 
+    "api/**/*.js": {
+      "memory": 1024,
+      "maxDuration": 60
+    }
+  },
+  "version": 2, 
+  "routes": [
+    { "src": "/api/download/video/(.+)", "dest": "/api/download/video/[filename]/route" }
+  ],
+  "outputs": {
+    "public": {
+      "bin/youtube-dl": {
+        "type": "static"
+      }
     }
   }
 }
