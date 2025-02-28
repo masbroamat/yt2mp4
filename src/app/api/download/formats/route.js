@@ -18,7 +18,6 @@ const defaultOptions = {
   noCheckCertificates: true,
   preferFreeFormats: true,
   youtubeSkipDashManifest: true,
-  cookies: path.join(process.cwd(), 'cookies.txt') // Add this line
 };
 
 

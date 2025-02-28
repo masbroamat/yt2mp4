@@ -1,5 +1,5 @@
 import { Geist, Geist_Mono } from "next/font/google";
-import { Analytics } from "@vercel/analytics/react"
+import { Analytics } from "@vercel/analytics/react";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -14,13 +14,16 @@ const geistMono = Geist_Mono({
 
 export const metadata = {
   title: "Best YouTube Video Downloader | Fast & Free Download",
-  description: "Download YouTube videos quickly and easily with our free online downloader. No registration required, high-quality formats available.",
-  keywords: "YouTube downloader, download YouTube videos, free video downloader, high-quality YouTube download, fast YouTube downloader, online video downloader, yt to mp4, youtube download, youtube download no ads",
+  description:
+    "Download YouTube videos quickly and easily with our free online downloader. No registration required, high-quality formats available.",
+  keywords:
+    "YouTube downloader, download YouTube videos, free video downloader, high-quality YouTube download, fast YouTube downloader, online video downloader, yt to mp4, youtube download, youtube download no ads",
   author: "masbroamat",
   openGraph: {
     title: "Best YouTube Video Downloader | Fast & Free Download",
-    description: "Download YouTube videos in high quality with ease. No software required, free and fast!",
-    url: "https://youtube-video-downloader-masbro.vercel.app",
+    description:
+      "Download YouTube videos in high quality with ease. No software required, free and fast!",
+    url: "https://yt2mp4-masbro-qa2wg.ondigitalocean.app",
     siteName: "YouTube Downloader",
     type: "website",
     images: [
@@ -31,7 +34,7 @@ export const metadata = {
         alt: "YouTube Video Downloader",
       },
     ],
-  }
+  },
 };
 
 export default function RootLayout({ children }) {
