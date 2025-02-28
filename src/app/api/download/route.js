@@ -4,20 +4,25 @@ import path from "path";
 import fs from "fs";
 import { randomUUID } from "crypto";
 import { trackFileCreation, cleanupOldFiles } from "../../../lib/fileCleanup";
-import youtubeDlExec from "youtube-dl-exec";
-import { execa } from 'execa';
-import ffmpegStatic from 'ffmpeg-static';
+// import youtubeDlExec from "youtube-dl-exec";
+import { execa } from "execa";
+// import ffmpegStatic from "ffmpeg-static";
+import { createRequire } from "module";
+ 
 
-// Get FFmpeg path from ffmpeg-static
+// Use createRequire to load CommonJS modules properly
+const require = createRequire(import.meta.url);
+const ffmpegStatic = require("ffmpeg-static"); // load ffmpeg-static using require
+
+// Use createRequire to load the CommonJS module properly 
+const youtubeDlExec = require("youtube-dl-exec");
+
 const ffmpegPath = ffmpegStatic;
 
-// Create youtube-dl instance
-const youtubeDl = youtubeDlExec.create({
-  cwd: process.cwd(),
-  noCache: true,
-});
+// Instead of using .create(), define a simple wrapper:
+const youtubeDl = (url, options = {}) =>
+  youtubeDlExec(url, { noCache: true, ...options });
 
-// Create downloads directory if it doesn't exist
 const downloadsDir = path.join(process.cwd(), "downloads");
 try {
   if (!fs.existsSync(downloadsDir)) {
@@ -29,11 +34,14 @@ try {
 
 export async function POST(request) {
   cleanupOldFiles();
-  
+
   const { url, formatId } = await request.json();
-  
+
   if (!url) {
-    return NextResponse.json({ error: "YouTube URL is required" }, { status: 400 });
+    return NextResponse.json(
+      { error: "YouTube URL is required" },
+      { status: 400 }
+    );
   }
 
   try {
@@ -42,41 +50,41 @@ export async function POST(request) {
     const videoTempPath = path.join(downloadsDir, `${filename}.video.mp4`);
     const audioTempPath = path.join(downloadsDir, `${filename}.audio.m4a`);
 
-    // Download video
     console.log("Downloading video...");
     await youtubeDl(url, {
       output: videoTempPath,
-      format: formatId || 'bestvideo[ext=mp4]',
+      format: formatId || "bestvideo[ext=mp4]",
     });
 
-    // Download audio
     console.log("Downloading audio...");
     await youtubeDl(url, {
       output: audioTempPath,
       extractAudio: true,
-      audioFormat: 'm4a',
-      format: 'bestaudio',
+      audioFormat: "m4a",
+      format: "bestaudio",
     });
 
-    // Combine with FFmpeg using execa
     console.log("Combining video and audio...");
     const ffmpegProcess = execa(ffmpegPath, [
-      '-i', videoTempPath,
-      '-i', audioTempPath,
-      '-c:v', 'copy',
-      '-c:a', 'aac',
-      '-strict', 'experimental',
-      outputPath
+      "-i",
+      videoTempPath,
+      "-i",
+      audioTempPath,
+      "-c:v",
+      "copy",
+      "-c:a",
+      "aac",
+      "-strict",
+      "experimental",
+      outputPath,
     ]);
 
-    // Real-time logging
-    ffmpegProcess.stderr.on('data', (data) => {
+    ffmpegProcess.stderr.on("data", (data) => {
       console.log(data.toString());
     });
 
     await ffmpegProcess;
 
-    // Cleanup temp files
     try {
       fs.unlinkSync(videoTempPath);
       fs.unlinkSync(audioTempPath);

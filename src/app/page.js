@@ -129,8 +129,17 @@ export default function Home() {
         body: JSON.stringify({ url }),
       });
       
+      if (!res.ok) {  // Add proper error handling
+        throw new Error(`HTTP error! status: ${res.status}`);
+      }
+
       const data = await res.json();
       
+      // Add validation for the response format
+      if (!data?.qualityOptions) {
+        throw new Error("Invalid response format from server");
+      }
+
       if (data.error) {
         setError(data.error);
       } else if (data.qualityOptions && data.qualityOptions.length > 0) {
@@ -141,7 +150,7 @@ export default function Home() {
         setNoOptionsAvailable(true);
       }
     } catch (error) {
-      console.error("Error:", error);
+      console.error("Full error:", error);
       setError(`Error: ${error.message}`);
     }
     setProcessing(false);
