@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import path from "path";
 import { fileURLToPath } from "url";
 import { createRequire } from "module";
+import fs from "fs";
 
 // Set up __filename and __dirname for ESM
 const __filename = fileURLToPath(import.meta.url);
@@ -20,12 +21,53 @@ const defaultOptions = {
   youtubeSkipDashManifest: true,
 };
 
-// Set YTDL_EXECUTABLE to force usage of your binary.
-process.env.YTDL_EXECUTABLE = path.join(
-  process.cwd(),
-  "bin",
-  process.platform === "win32" ? "youtube-dl.exe" : "youtube-dl"
-);
+// Determine the correct path to the youtube-dl binary
+function getYoutubeDlPath() {
+  // For Vercel serverless functions
+  const possiblePaths = [
+    // Check for the binary in various possible locations
+    path.join(process.cwd(), "bin", "youtube-dl"),
+    path.join(process.cwd(), "public", "bin", "youtube-dl"),
+    path.join(__dirname, "..", "..", "..", "..", "bin", "youtube-dl"),
+    path.join(__dirname, "..", "..", "..", "bin", "youtube-dl")
+  ];
+  
+  // Add .exe extension for Windows
+  if (process.platform === "win32") {
+    possiblePaths.forEach((p, i) => possiblePaths[i] = `${p}.exe`);
+  }
+  
+  // Log all paths we're checking
+  console.log("Checking for youtube-dl in paths:", possiblePaths);
+  
+  // Find the first existing binary path
+  for (const binPath of possiblePaths) {
+    try {
+      if (fs.existsSync(binPath)) {
+        console.log(`Found youtube-dl binary at: ${binPath}`);
+        return binPath;
+      }
+    } catch (error) {
+      console.log(`Path check error for ${binPath}:`, error.message);
+    }
+  }
+
+  // Fallback to the default location
+  const defaultPath = process.platform === "win32" 
+    ? path.join(process.cwd(), "bin", "youtube-dl.exe") 
+    : path.join(process.cwd(), "bin", "youtube-dl");
+  
+  console.log(`No youtube-dl binary found, using default path: ${defaultPath}`);
+  return defaultPath;
+}
+
+// Set YTDL_EXECUTABLE to force usage of youtube-dl binary
+const youtubeDlPath = getYoutubeDlPath();
+console.log(`Setting YTDL_EXECUTABLE to: ${youtubeDlPath}`);
+process.env.YTDL_EXECUTABLE = youtubeDlPath;
+
+// Override youtube-dl-exec default binary name
+youtubeDlExec.defaultBinaryName = "youtube-dl";
 
 export async function POST(request) {
   try {
@@ -37,8 +79,18 @@ export async function POST(request) {
       );
     }
 
-    // Call youtube-dl-exec with default options
-    const videoData = await youtubeDlExec(url, defaultOptions);
+    // Log the executable path being used
+    console.log(`Using binary at: ${process.env.YTDL_EXECUTABLE}`);
+    console.log(`Current directory structure:`, {
+      cwd: process.cwd(),
+      dirname: __dirname
+    });
+
+    // Call youtube-dl-exec with default options and explicitly set binary
+    const videoData = await youtubeDlExec(url, {
+      ...defaultOptions,
+      binaryPath: youtubeDlPath
+    });
 
     // Process videoData to extract quality options...
     const bestAudioFormat = videoData.formats
@@ -115,8 +167,21 @@ export async function POST(request) {
     return NextResponse.json({ qualityOptions });
   } catch (error) {
     console.error("Detailed error:", error);
+    // Include more detailed error information for debugging
     return NextResponse.json(
-      { error: "Error fetching formats: " + error.message },
+      { 
+        error: "Error fetching formats: " + error.message,
+        details: {
+          errorMessage: error.message,
+          errorStack: error.stack,
+          errorPath: error.path,
+          errorCode: error.code,
+          errorSyscall: error.syscall,
+          executablePath: process.env.YTDL_EXECUTABLE,
+          cwd: process.cwd(),
+          dirname: __dirname
+        }
+      },
       { status: 500 }
     );
   }
