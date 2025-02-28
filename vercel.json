@@ -10,10 +10,6 @@
       "memory": 1024,
       "maxDuration": 60,
       "includeFiles": "bin/**"
-    },
-    "api/**/*.js": {
-      "memory": 1024,
-      "maxDuration": 60
     }
   },
   "version": 2,
