@@ -69,105 +69,111 @@ process.env.YTDL_EXECUTABLE = youtubeDlPath;
 // Override youtube-dl-exec default binary name
 youtubeDlExec.defaultBinaryName = "youtube-dl";
 
-export async function POST(request) {
-  try {
-    const { url } = await request.json();
-    if (!url) {
-      return NextResponse.json(
-        { error: "YouTube URL is required" },
-        { status: 400 }
-      );
+// Helper function to process video data and extract formats
+async function processVideoRequest(url) {
+  if (!url) {
+    return NextResponse.json(
+      { error: "YouTube URL is required" },
+      { status: 400 }
+    );
+  }
+
+  // Log the executable path being used
+  console.log(`Using binary at: ${process.env.YTDL_EXECUTABLE}`);
+  console.log(`Current directory structure:`, {
+    cwd: process.cwd(),
+    dirname: __dirname
+  });
+
+  // Call youtube-dl-exec with default options and explicitly set binary
+  const videoData = await youtubeDlExec(url, {
+    ...defaultOptions,
+    binaryPath: youtubeDlPath
+  });
+
+  // Process videoData to extract quality options...
+  const bestAudioFormat = videoData.formats
+    .filter(format => format.vcodec === 'none' && format.acodec !== 'none')
+    .reduce((best, current) => {
+      if (!best || (current.tbr && (!best.tbr || current.tbr > best.tbr))) {
+        return current;
+      }
+      return best;
+    }, null);
+
+  const audioSize = bestAudioFormat?.filesize ||
+    (bestAudioFormat?.tbr ? Math.round((bestAudioFormat.tbr * 1024 * videoData.duration) / 8) : 0);
+
+  const formats = videoData.formats
+    .filter(format => {
+      if (format.vcodec === 'none') return false;
+      if (!format.height) return false;
+      if (format.resolution === 'audio only') return false;
+      if (format.ext !== 'mp4') return false;
+      const commonResolutions = [1080, 720, 480, 360];
+      return commonResolutions.includes(format.height);
+    })
+    .sort((a, b) => b.height - a.height);
+
+  const uniqueFormats = formats.reduce((acc, current) => {
+    const existingFormat = acc.find(item => item.height === current.height);
+    if (!existingFormat) {
+      return acc.concat([current]);
     }
+    if (current.ext === 'mp4' && (current.vcodec === 'avc1' || current.vcodec === 'h264')) {
+      const index = acc.indexOf(existingFormat);
+      acc[index] = current;
+    }
+    return acc;
+  }, []);
 
-    // Log the executable path being used
-    console.log(`Using binary at: ${process.env.YTDL_EXECUTABLE}`);
-    console.log(`Current directory structure:`, {
-      cwd: process.cwd(),
-      dirname: __dirname
-    });
-
-    // Call youtube-dl-exec with default options and explicitly set binary
-    const videoData = await youtubeDlExec(url, {
-      ...defaultOptions,
-      binaryPath: youtubeDlPath
-    });
-
-    // Process videoData to extract quality options...
-    const bestAudioFormat = videoData.formats
-      .filter(format => format.vcodec === 'none' && format.acodec !== 'none')
-      .reduce((best, current) => {
-        if (!best || (current.tbr && (!best.tbr || current.tbr > best.tbr))) {
-          return current;
-        }
-        return best;
-      }, null);
-
-    const audioSize = bestAudioFormat?.filesize ||
-      (bestAudioFormat?.tbr ? Math.round((bestAudioFormat.tbr * 1024 * videoData.duration) / 8) : 0);
-
-    const formats = videoData.formats
-      .filter(format => {
-        if (format.vcodec === 'none') return false;
-        if (!format.height) return false;
-        if (format.resolution === 'audio only') return false;
-        if (format.ext !== 'mp4') return false;
-        const commonResolutions = [1080, 720, 480, 360];
-        return commonResolutions.includes(format.height);
-      })
-      .sort((a, b) => b.height - a.height);
-
-    const uniqueFormats = formats.reduce((acc, current) => {
-      const existingFormat = acc.find(item => item.height === current.height);
-      if (!existingFormat) {
-        return acc.concat([current]);
-      }
-      if (current.ext === 'mp4' && (current.vcodec === 'avc1' || current.vcodec === 'h264')) {
-        const index = acc.indexOf(existingFormat);
-        acc[index] = current;
-      }
-      return acc;
-    }, []);
-
-    const qualityOptions = uniqueFormats.map((format) => {
-      let totalSize;
-      let isEstimated = false;
-      if (format.filesize && format.filesize > 0) {
-        totalSize = format.filesize + audioSize;
-      } else if (format.tbr && videoData.duration) {
-        isEstimated = true;
-        const videoBitrate = format.tbr;
-        const totalBitrate = videoBitrate + (bestAudioFormat?.tbr || 128);
-        totalSize = Math.round((totalBitrate * 1024 * videoData.duration) / 8);
-      } else {
-        totalSize = null;
-      }
-      if (!totalSize) {
-        isEstimated = true;
-        const bitrateMap = {
-          1080: 8000,
-          720: 5000,
-          480: 2500,
-          360: 1000,
-        };
-        const estimatedBitrate = bitrateMap[format.height] || 1000;
-        totalSize = Math.round(((estimatedBitrate + 128) * 1024 * videoData.duration) / 8);
-      }
-      return {
-        format_id: format.format_id,
-        resolution: `${format.height}p`,
-        fps: format.fps || 30,
-        filesize: totalSize,
-        vcodec: format.vcodec,
-        acodec: format.acodec,
-        ext: format.ext,
-        label: `${format.height}p${format.fps > 30 ? ` ${format.fps}fps` : ''} (${formatFileSize(totalSize, isEstimated)})`
+  const qualityOptions = uniqueFormats.map((format) => {
+    let totalSize;
+    let isEstimated = false;
+    if (format.filesize && format.filesize > 0) {
+      totalSize = format.filesize + audioSize;
+    } else if (format.tbr && videoData.duration) {
+      isEstimated = true;
+      const videoBitrate = format.tbr;
+      const totalBitrate = videoBitrate + (bestAudioFormat?.tbr || 128);
+      totalSize = Math.round((totalBitrate * 1024 * videoData.duration) / 8);
+    } else {
+      totalSize = null;
+    }
+    if (!totalSize) {
+      isEstimated = true;
+      const bitrateMap = {
+        1080: 8000,
+        720: 5000,
+        480: 2500,
+        360: 1000,
       };
-    });
+      const estimatedBitrate = bitrateMap[format.height] || 1000;
+      totalSize = Math.round(((estimatedBitrate + 128) * 1024 * videoData.duration) / 8);
+    }
+    return {
+      format_id: format.format_id,
+      resolution: `${format.height}p`,
+      fps: format.fps || 30,
+      filesize: totalSize,
+      vcodec: format.vcodec,
+      acodec: format.acodec,
+      ext: format.ext,
+      label: `${format.height}p${format.fps > 30 ? ` ${format.fps}fps` : ''} (${formatFileSize(totalSize, isEstimated)})`
+    };
+  });
 
-    return NextResponse.json({ qualityOptions });
+  return NextResponse.json({ qualityOptions });
+}
+
+// Handle GET requests
+export async function GET(request) {
+  try {
+    // Extract URL from query parameters
+    const url = new URL(request.url).searchParams.get('url');
+    return await processVideoRequest(url);
   } catch (error) {
-    console.error("Detailed error:", error);
-    // Include more detailed error information for debugging
+    console.error("Detailed error in GET handler:", error);
     return NextResponse.json(
       { 
         error: "Error fetching formats: " + error.message,
@@ -178,6 +184,34 @@ export async function POST(request) {
           errorCode: error.code,
           errorSyscall: error.syscall,
           executablePath: process.env.YTDL_EXECUTABLE,
+          method: "GET",
+          cwd: process.cwd(),
+          dirname: __dirname
+        }
+      },
+      { status: 500 }
+    );
+  }
+}
+
+// Handle POST requests (keep existing functionality)
+export async function POST(request) {
+  try {
+    const { url } = await request.json();
+    return await processVideoRequest(url);
+  } catch (error) {
+    console.error("Detailed error in POST handler:", error);
+    return NextResponse.json(
+      { 
+        error: "Error fetching formats: " + error.message,
+        details: {
+          errorMessage: error.message,
+          errorStack: error.stack,
+          errorPath: error.path,
+          errorCode: error.code,
+          errorSyscall: error.syscall,
+          executablePath: process.env.YTDL_EXECUTABLE,
+          method: "POST",
           cwd: process.cwd(),
           dirname: __dirname
         }
