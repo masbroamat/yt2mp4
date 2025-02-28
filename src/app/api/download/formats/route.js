@@ -8,28 +8,24 @@ import { createRequire } from "module";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Use createRequire to load the CommonJS module properly
 const require = createRequire(import.meta.url);
 const youtubeDlExec = require("youtube-dl-exec");
 
-// Choose the binary path based on platform:
-const executablePath =
-  process.platform === "win32"
-    ? path.join(process.cwd(), "bin", "youtube-dl.exe")
-    : path.join(process.cwd(), "bin", "youtube-dl");
-
-// Define default options without "cwd" and force the executable to "youtube-dl"
-// Define default options without the "executable" flag.
+// Define default options without the "executable" property.
 const defaultOptions = {
   noCache: true,
   dumpSingleJson: true,
   noCheckCertificates: true,
   preferFreeFormats: true,
   youtubeSkipDashManifest: true,
-  executable: executablePath,
-  // Remove the "executable" property so that no unsupported flag is passed.
 };
 
+// Set YTDL_EXECUTABLE to force usage of your binary.
+process.env.YTDL_EXECUTABLE = path.join(
+  process.cwd(),
+  "bin",
+  process.platform === "win32" ? "youtube-dl.exe" : "youtube-dl"
+);
 
 export async function POST(request) {
   try {
@@ -41,11 +37,10 @@ export async function POST(request) {
       );
     }
 
-    // Call youtube-dl-exec with the default options merged in
+    // Call youtube-dl-exec with default options
     const videoData = await youtubeDlExec(url, defaultOptions);
 
-
-    // Find best audio format and its properties
+    // Process videoData to extract quality options...
     const bestAudioFormat = videoData.formats
       .filter(format => format.vcodec === 'none' && format.acodec !== 'none')
       .reduce((best, current) => {
@@ -55,28 +50,20 @@ export async function POST(request) {
         return best;
       }, null);
 
-    // Calculate audio size based on bitrate if filesize is not available
     const audioSize = bestAudioFormat?.filesize ||
       (bestAudioFormat?.tbr ? Math.round((bestAudioFormat.tbr * 1024 * videoData.duration) / 8) : 0);
 
-    // Filter and sort formats to get reliable quality options
     const formats = videoData.formats
       .filter(format => {
-        // Only include formats with video
         if (format.vcodec === 'none') return false;
-        // Must have height information
         if (!format.height) return false;
-        // Exclude audio-only formats
         if (format.resolution === 'audio only') return false;
-        // Only include MP4 formats
         if (format.ext !== 'mp4') return false;
-        // Only include formats with common resolutions
         const commonResolutions = [1080, 720, 480, 360];
         return commonResolutions.includes(format.height);
       })
       .sort((a, b) => b.height - a.height);
 
-    // Remove duplicate resolutions, keeping the most compatible format for each resolution
     const uniqueFormats = formats.reduce((acc, current) => {
       const existingFormat = acc.find(item => item.height === current.height);
       if (!existingFormat) {
@@ -89,22 +76,19 @@ export async function POST(request) {
       return acc;
     }, []);
 
-    // Extract and format quality options with more details
     const qualityOptions = uniqueFormats.map((format) => {
       let totalSize;
       let isEstimated = false;
-
       if (format.filesize && format.filesize > 0) {
         totalSize = format.filesize + audioSize;
       } else if (format.tbr && videoData.duration) {
         isEstimated = true;
         const videoBitrate = format.tbr;
-        const totalBitrate = videoBitrate + (bestAudioFormat?.tbr || 128); // assume 128kbps for audio if not known
+        const totalBitrate = videoBitrate + (bestAudioFormat?.tbr || 128);
         totalSize = Math.round((totalBitrate * 1024 * videoData.duration) / 8);
       } else {
         totalSize = null;
       }
-
       if (!totalSize) {
         isEstimated = true;
         const bitrateMap = {
@@ -116,7 +100,6 @@ export async function POST(request) {
         const estimatedBitrate = bitrateMap[format.height] || 1000;
         totalSize = Math.round(((estimatedBitrate + 128) * 1024 * videoData.duration) / 8);
       }
-
       return {
         format_id: format.format_id,
         resolution: `${format.height}p`,
@@ -139,15 +122,14 @@ export async function POST(request) {
   }
 }
 
-// Helper function to format file size
 function formatFileSize(bytes, isEstimated = false) {
-  if (!bytes) return 'Size unavailable';
-  const units = ['B', 'KB', 'MB', 'GB'];
+  if (!bytes) return "Size unavailable";
+  const units = ["B", "KB", "MB", "GB"];
   let size = bytes;
   let unitIndex = 0;
   while (size >= 1024 && unitIndex < units.length - 1) {
     size /= 1024;
     unitIndex++;
   }
-  return `${isEstimated ? '~' : ''}${size.toFixed(1)} ${units[unitIndex]}`;
+  return `${isEstimated ? "~" : ""}${size.toFixed(1)} ${units[unitIndex]}`;
 }
