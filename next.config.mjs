@@ -1,13 +1,9 @@
-/** @type {import('next').NextConfig} */
-const nextConfig = {
-    webpack: (config, { isServer }) => {
-      if (isServer) {
-        config.externals = config.externals || [];
-        // Exclude all @ffmpeg-installer packages from bundling
-        config.externals.push(/^@ffmpeg-installer\/.*/);
-      }
+module.exports = {
+    webpack: (config) => {
+      config.module = {
+        ...config.module,
+        exprContextCritical: false, // Suppress critical dependency warnings
+      };
       return config;
     },
   };
-  
-  export default nextConfig;
