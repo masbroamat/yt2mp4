@@ -12,6 +12,12 @@ const __dirname = path.dirname(__filename);
 const require = createRequire(import.meta.url);
 const youtubeDlExec = require("youtube-dl-exec");
 
+// Choose the binary path based on platform:
+const executablePath =
+  process.platform === "win32"
+    ? path.join(process.cwd(), "bin", "youtube-dl.exe")
+    : path.join(process.cwd(), "bin", "youtube-dl");
+
 // Define default options without "cwd" and force the executable to "youtube-dl"
 // Define default options without the "executable" flag.
 const defaultOptions = {
@@ -20,6 +26,7 @@ const defaultOptions = {
   noCheckCertificates: true,
   preferFreeFormats: true,
   youtubeSkipDashManifest: true,
+  executable: executablePath,
   // Remove the "executable" property so that no unsupported flag is passed.
 };
 
