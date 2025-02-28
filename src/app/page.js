@@ -302,6 +302,13 @@ export default function Home() {
               </div>
             )}
             
+            {/* New "Fetching video quality" message */}
+            {processing && !selectedQuality && !error && (
+              <div className="p-4 bg-yellow-500/10 border border-yellow-500/20 rounded-lg text-yellow-400">
+                Fetching video quality, please wait a minute...
+              </div>
+            )}
+
             {/* No Options Available Message */}
             {noOptionsAvailable && (
               <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-lg text-red-400">
