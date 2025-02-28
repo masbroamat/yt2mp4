@@ -1,11 +1,18 @@
 // app/api/download/route.js
-import { exec } from "child_process";
 import { NextResponse } from "next/server";
 import path from "path";
 import fs from "fs";
 import { randomUUID } from "crypto";
 import { trackFileCreation, cleanupOldFiles } from "../../../lib/fileCleanup";
+import youtubeDlExec from "youtube-dl-exec";
+import { spawn } from 'child_process';
+import ffmpegInstaller from '@ffmpeg-installer/ffmpeg';
 
+// Create a youtube-dl instance with proper configuration
+const youtubeDl = youtubeDlExec.create({
+  cwd: process.cwd(),
+  noCache: true,
+});
 
 // Create downloads directory if it doesn't exist
 const downloadsDir = path.join(process.cwd(), "downloads");
@@ -31,47 +38,63 @@ export async function POST(request) {
     // Generate a unique filename
     const filename = `${randomUUID()}.mp4`;
     const outputPath = path.join(downloadsDir, filename);
+    const videoTempPath = path.join(downloadsDir, `${filename}.video.mp4`);
+    const audioTempPath = path.join(downloadsDir, `${filename}.audio.m4a`);
 
+    // Download video with specific format or best video
+    console.log("Downloading video...");
+    await youtubeDl(url, {
+      output: videoTempPath,
+      format: formatId || 'bestvideo[ext=mp4]',
+    });
+
+    // Download audio separately
+    console.log("Downloading audio...");
+    await youtubeDl(url, {
+      output: audioTempPath,
+      extractAudio: true,
+      audioFormat: 'm4a',
+      format: 'bestaudio',
+    });
+
+    // Combine with ffmpeg
+    console.log("Combining video and audio...");
     await new Promise((resolve, reject) => {
-      // Command to download video and audio separately, then combine with AAC audio
-      const command = formatId
-        ? `yt-dlp -f "${formatId}" "${url}" -o "${outputPath}.video.mp4" && yt-dlp -f "bestaudio" "${url}" -o "${outputPath}.audio.m4a" --extract-audio --audio-format m4a && ffmpeg -i "${outputPath}.video.mp4" -i "${outputPath}.audio.m4a" -c:v copy -c:a aac -strict experimental "${outputPath}" && del "${outputPath}.video.mp4" "${outputPath}.audio.m4a"`
-        : `yt-dlp -f "bestvideo" "${url}" -o "${outputPath}.video.mp4" && yt-dlp -f "bestaudio" "${url}" -o "${outputPath}.audio.m4a" --extract-audio --audio-format m4a && ffmpeg -i "${outputPath}.video.mp4" -i "${outputPath}.audio.m4a" -c:v copy -c:a aac -strict experimental "${outputPath}" && del "${outputPath}.video.mp4" "${outputPath}.audio.m4a"`;
-      
-      console.log("Executing command:", command);
-      
-      const process = exec(command, { maxBuffer: 1024 * 1024 * 10 });
-      
-      // Collect stdout and stderr
-      let stdoutData = '';
-      let stderrData = '';
-      
-      process.stdout?.on('data', (data) => {
-        stdoutData += data;
-        console.log(data);
+      const ffmpeg = spawn(ffmpegInstaller.path, [
+        '-i', videoTempPath,
+        '-i', audioTempPath,
+        '-c:v', 'copy',
+        '-c:a', 'aac',
+        '-strict', 'experimental',
+        outputPath
+      ]);
+
+      let stderr = '';
+      ffmpeg.stderr.on('data', (data) => {
+        stderr += data.toString();
+        console.log(data.toString());
       });
-      
-      process.stderr?.on('data', (data) => {
-        stderrData += data;
-        console.error(data);
-      });
-      
-      process.on('close', (code) => {
-        console.log(`Child process exited with code ${code}`);
-        
-        // Only consider it an error if the code is non-zero
+
+      ffmpeg.on('close', (code) => {
         if (code === 0) {
-          resolve(stdoutData);
+          resolve();
         } else {
-          reject(new Error(`Download failed. Exit code: ${code}. Error: ${stderrData}`));
+          reject(new Error(`FFmpeg failed with code ${code}: ${stderr}`));
         }
       });
-      
-      process.on('error', (error) => {
-        console.error("Process error:", error);
-        reject(error);
+
+      ffmpeg.on('error', (err) => {
+        reject(err);
       });
     });
+
+    // Clean up temp files
+    try {
+      fs.unlinkSync(videoTempPath);
+      fs.unlinkSync(audioTempPath);
+    } catch (err) {
+      console.error("Error cleaning up temp files:", err);
+    }
 
     // Verify the file exists after download is complete
     if (!fs.existsSync(outputPath)) {

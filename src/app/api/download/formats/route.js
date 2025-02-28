@@ -1,6 +1,14 @@
-// src/app/api/formats/route.js (for the App Router)
-import { exec } from "child_process";
+// src/app/api/download/formats/route.js
 import { NextResponse } from "next/server";
+import youtubeDlExec from "youtube-dl-exec";
+
+// Create a youtube-dl instance with proper configuration
+// const youtubeDl = youtubeDlExec.create({
+//   cwd: process.cwd(),
+//   noCache: true,
+// });
+
+const youtubeDl = (url, options) => youtubeDlExec(url, options);
 
 export async function POST(request) {
   try {
@@ -9,14 +17,13 @@ export async function POST(request) {
       return NextResponse.json({ error: "YouTube URL is required" }, { status: 400 });
     }
 
-    const data = await new Promise((resolve, reject) => {
-      exec(`yt-dlp -j "${url}"`, (error, stdout) => {
-        if (error) return reject(error);
-        resolve(stdout);
-      });
+    // Use youtube-dl-exec to fetch video info
+    const videoData = await youtubeDl(url, {
+      dumpSingleJson: true,
+      noCheckCertificates: true,
+      preferFreeFormats: true,
+      youtubeSkipDashManifest: true,
     });
-
-    const videoData = JSON.parse(data);
     
     // Find best audio format and its properties
     const bestAudioFormat = videoData.formats
@@ -123,6 +130,7 @@ export async function POST(request) {
     );
   }
 }
+
 // Helper function to format file size
 function formatFileSize(bytes, isEstimated = false) {
   if (!bytes) return 'Size unavailable';
@@ -137,4 +145,3 @@ function formatFileSize(bytes, isEstimated = false) {
   
   return `${isEstimated ? '~' : ''}${size.toFixed(1)} ${units[unitIndex]}`;
 }
-
