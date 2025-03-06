@@ -4,7 +4,7 @@
 import { useState, useRef, useEffect } from "react";
 import { BackgroundPaths } from "@/components/ui/background-paths";
 import { Input } from "@/components/ui/input";
-import { CircleX, Search, Loader2, Download } from "lucide-react";
+import { CircleX, Search, Loader2, Download, Github } from "lucide-react";
 import { Inter } from "next/font/google";
 
 const inter = Inter({ subsets: ["latin"] });
@@ -258,12 +258,22 @@ export default function Home() {
               Downloads may be temporarily unavailable.
             </p>
           </div>
-
           <div className="flex flex-col items-center space-y-12 mb-8">
             {/* Title */}
             <h1 className="text-4xl sm:text-5xl md:text-6xl font-bold text-center text-white">
               YouTube Downloader
             </h1>
+            {/* Transparent Sidebar */}
+            <div className="flex flex-col items-center justify-center bg-black bg-opacity-0 z-30  ">
+              <a
+                href="https://github.com/masbroamat"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="h-12 w-12 border border-white rounded-sm flex flex-col items-center justify-center"
+              >
+                <Github size={24} className="text-white" />
+              </a>
+            </div>
             {/* Global Conversion Counter */}
             <p className="text-center text-white mt-4">
               Total Converted Videos: {globalConversionCount}

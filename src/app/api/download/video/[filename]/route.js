@@ -6,34 +6,34 @@ import {
   cleanupOldFiles,
 } from "../../../../../lib/fileCleanup";
 
-// Create downloads directory if it doesn't exist
+// Ensure the downloads directory exists
 const downloadsDir = path.join(process.cwd(), "downloads");
 if (!fs.existsSync(downloadsDir)) {
   fs.mkdirSync(downloadsDir);
 }
 
 export async function GET(request, { params }) {
-  // Run cleanup check on each request
+  // Run cleanup on each request
   cleanupOldFiles();
 
   try {
-    // Await params as required by Next.js
+    // Get the filename from the route params
     const { filename } = await params;
     const filePath = path.join(downloadsDir, filename);
 
-    // Check if file exists
+    // Check if the file exists
     if (!fs.existsSync(filePath)) {
       console.error(`File not found: ${filePath}`);
       return new Response("File not found", { status: 404 });
     }
 
-    // Mark file as accessed
+    // Mark the file as accessed (for your cleanup logic)
     markFileAccessed(filename);
 
-    // Read the file into a buffer
+    // Read the file into memory
     const fileBuffer = await fs.promises.readFile(filePath);
 
-    // Create the response
+    // Prepare the response with proper headers for video download
     const response = new Response(fileBuffer, {
       headers: {
         "Content-Type": "video/mp4",
@@ -42,8 +42,28 @@ export async function GET(request, { params }) {
       },
     });
 
-    // We no longer delete the file immediately after serving
-    // It will be automatically deleted by the cleanup process after 24 hours
+    // Delete the video file after reading it
+    fs.promises
+      .unlink(filePath)
+      .catch((err) => console.error("Error deleting video file:", err));
+
+    // Update metadata.json: remove the key matching the downloaded filename
+    const metadataPath = path.join(downloadsDir, ".metadata.json");
+    try {
+      const metadataContent = await fs.promises.readFile(metadataPath, "utf-8");
+      const metadata = JSON.parse(metadataContent);
+
+      // Remove the entry corresponding to the file
+      if (metadata.hasOwnProperty(filename)) {
+        delete metadata[filename];
+        await fs.promises.writeFile(
+          metadataPath,
+          JSON.stringify(metadata, null, 2)
+        );
+      }
+    } catch (metaErr) {
+      console.error("Error updating .metadata.json:", metaErr);
+    }
 
     return response;
   } catch (error) {
