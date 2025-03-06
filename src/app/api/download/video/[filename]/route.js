@@ -1,7 +1,10 @@
-// app/api/download/video/[filename]/route.js 
+// app/api/download/video/[filename]/route.js
 import path from "path";
 import fs from "fs";
-import { markFileAccessed, cleanupOldFiles } from "../../../../../lib/fileCleanup";
+import {
+  markFileAccessed,
+  cleanupOldFiles,
+} from "../../../../../lib/fileCleanup";
 
 // Create downloads directory if it doesn't exist
 const downloadsDir = path.join(process.cwd(), "downloads");
@@ -12,7 +15,7 @@ if (!fs.existsSync(downloadsDir)) {
 export async function GET(request, { params }) {
   // Run cleanup check on each request
   cleanupOldFiles();
-  
+
   try {
     // Await params as required by Next.js
     const { filename } = await params;
@@ -33,9 +36,9 @@ export async function GET(request, { params }) {
     // Create the response
     const response = new Response(fileBuffer, {
       headers: {
-        'Content-Type': 'video/mp4',
-        'Content-Disposition': `attachment; filename="video.mp4"`,
-        'Content-Length': fileBuffer.length.toString(),
+        "Content-Type": "video/mp4",
+        "Content-Disposition": `attachment; filename="video.mp4"`,
+        "Content-Length": fileBuffer.length.toString(),
       },
     });
 

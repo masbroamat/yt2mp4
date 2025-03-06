@@ -1,28 +1,12 @@
 // app/api/download/route.js
+import { exec } from "child_process";
 import { NextResponse } from "next/server";
 import path from "path";
 import fs from "fs";
 import { randomUUID } from "crypto";
 import { trackFileCreation, cleanupOldFiles } from "../../../lib/fileCleanup";
-// import youtubeDlExec from "youtube-dl-exec";
-import { execa } from "execa";
-// import ffmpegStatic from "ffmpeg-static";
-import { createRequire } from "module";
- 
 
-// Use createRequire to load CommonJS modules properly
-const require = createRequire(import.meta.url);
-const ffmpegStatic = require("ffmpeg-static"); // load ffmpeg-static using require
-
-// Use createRequire to load the CommonJS module properly 
-const youtubeDlExec = require("youtube-dl-exec");
-
-const ffmpegPath = ffmpegStatic;
-
-// Instead of using .create(), define a simple wrapper:
-const youtubeDl = (url, options = {}) =>
-  youtubeDlExec(url, { noCache: true, ...options });
-
+// Create downloads directory if it doesn't exist
 const downloadsDir = path.join(process.cwd(), "downloads");
 try {
   if (!fs.existsSync(downloadsDir)) {
@@ -33,6 +17,7 @@ try {
 }
 
 export async function POST(request) {
+  // Run cleanup before processing new downloads
   cleanupOldFiles();
 
   const { url, formatId } = await request.json();
@@ -45,58 +30,64 @@ export async function POST(request) {
   }
 
   try {
+    // Generate a unique filename
     const filename = `${randomUUID()}.mp4`;
     const outputPath = path.join(downloadsDir, filename);
-    const videoTempPath = path.join(downloadsDir, `${filename}.video.mp4`);
-    const audioTempPath = path.join(downloadsDir, `${filename}.audio.m4a`);
 
-    console.log("Downloading video...");
-    await youtubeDl(url, {
-      output: videoTempPath,
-      format: formatId || "bestvideo[ext=mp4]",
+    await new Promise((resolve, reject) => {
+      // Command to download video and audio separately, then combine with AAC audio
+      const command = formatId
+        ? `yt-dlp -f "${formatId}" "${url}" -o "${outputPath}.video.mp4" && yt-dlp -f "bestaudio" "${url}" -o "${outputPath}.audio.m4a" --extract-audio --audio-format m4a && ffmpeg -i "${outputPath}.video.mp4" -i "${outputPath}.audio.m4a" -c:v copy -c:a aac -strict experimental "${outputPath}" && del "${outputPath}.video.mp4" "${outputPath}.audio.m4a"`
+        : `yt-dlp -f "bestvideo" "${url}" -o "${outputPath}.video.mp4" && yt-dlp -f "bestaudio" "${url}" -o "${outputPath}.audio.m4a" --extract-audio --audio-format m4a && ffmpeg -i "${outputPath}.video.mp4" -i "${outputPath}.audio.m4a" -c:v copy -c:a aac -strict experimental "${outputPath}" && del "${outputPath}.video.mp4" "${outputPath}.audio.m4a"`;
+
+      console.log("Executing command:", command);
+
+      const process = exec(command, { maxBuffer: 1024 * 1024 * 10 });
+
+      // Collect stdout and stderr
+      let stdoutData = "";
+      let stderrData = "";
+
+      process.stdout?.on("data", (data) => {
+        stdoutData += data;
+        console.log(data);
+      });
+
+      process.stderr?.on("data", (data) => {
+        stderrData += data;
+        console.error(data);
+      });
+
+      process.on("close", (code) => {
+        console.log(`Child process exited with code ${code}`);
+
+        // Only consider it an error if the code is non-zero
+        if (code === 0) {
+          resolve(stdoutData);
+        } else {
+          reject(
+            new Error(
+              `Download failed. Exit code: ${code}. Error: ${stderrData}`
+            )
+          );
+        }
+      });
+
+      process.on("error", (error) => {
+        console.error("Process error:", error);
+        reject(error);
+      });
     });
 
-    console.log("Downloading audio...");
-    await youtubeDl(url, {
-      output: audioTempPath,
-      extractAudio: true,
-      audioFormat: "m4a",
-      format: "bestaudio",
-    });
-
-    console.log("Combining video and audio...");
-    const ffmpegProcess = execa(ffmpegPath, [
-      "-i",
-      videoTempPath,
-      "-i",
-      audioTempPath,
-      "-c:v",
-      "copy",
-      "-c:a",
-      "aac",
-      "-strict",
-      "experimental",
-      outputPath,
-    ]);
-
-    ffmpegProcess.stderr.on("data", (data) => {
-      console.log(data.toString());
-    });
-
-    await ffmpegProcess;
-
-    try {
-      fs.unlinkSync(videoTempPath);
-      fs.unlinkSync(audioTempPath);
-    } catch (err) {
-      console.error("Error cleaning up temp files:", err);
-    }
-
+    // Verify the file exists after download is complete
     if (!fs.existsSync(outputPath)) {
-      throw new Error("Downloaded file not found after processing");
+      throw new Error("Downloaded file not found after successful download");
     }
 
+    // Track the file creation with our new utility
     trackFileCreation(filename);
+
+    // Create a route that serves the video file
     const downloadUrl = `/api/download/video/${filename}`;
     return NextResponse.json({ downloadUrl });
   } catch (error) {

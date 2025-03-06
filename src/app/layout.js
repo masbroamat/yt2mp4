@@ -1,5 +1,4 @@
 import { Geist, Geist_Mono } from "next/font/google";
-import { Analytics } from "@vercel/analytics/react";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -23,7 +22,7 @@ export const metadata = {
     title: "Best YouTube Video Downloader | Fast & Free Download",
     description:
       "Download YouTube videos in high quality with ease. No software required, free and fast!",
-    url: "https://yt2mp4-masbro-qa2wg.ondigitalocean.app",
+    url: "http://localhost:3000",
     siteName: "YouTube Downloader",
     type: "website",
     images: [
@@ -50,7 +49,6 @@ export default function RootLayout({ children }) {
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         {children}
-        <Analytics />
       </body>
     </html>
   );

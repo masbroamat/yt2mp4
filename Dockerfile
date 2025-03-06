@@ -1,32 +1,29 @@
-# Stage 1: Build the application
-FROM node:18-alpine AS builder
+# Use an official Node.js runtime as the base image
+FROM node:18-alpine
+
+# Install yt-dlp and its dependencies
+RUN apk add --no-cache yt-dlp ffmpeg
+
+# Set the working directory inside the container
 WORKDIR /app
 
-# Install Python and build tools (needed for some native modules)
-RUN apk add --no-cache python3 make g++
+# Copy package.json and package-lock.json
+COPY package.json package-lock.json ./
 
-# Copy package files and install dependencies
-COPY package*.json ./
+# Install dependencies
 RUN npm install
 
-# Copy the rest of your source code
+# Copy the rest of the application files
 COPY . .
+
+# Conditionally replace the Windows "del" command with Linux "rm -f" in the download route file if it exists.
+RUN sed -i 's/del "/rm -f "/g' ./src/app/api/download/route.js
 
 # Build the Next.js app
 RUN npm run build
 
-# Stage 2: Run the application
-FROM node:18-alpine
-WORKDIR /app
-
-# Install Python runtime and ffmpeg (which includes ffprobe)
-RUN apk add --no-cache python3 ffmpeg
-
-# Copy the built application from the builder stage
-COPY --from=builder /app ./
-
-# Expose the port your app runs on
+# Expose the Next.js default port
 EXPOSE 3000
 
-# Start the application in production mode (or dev mode with 0.0.0.0 binding)
-CMD ["npm", "run", "dev", "--", "-H", "0.0.0.0"]
+# Start the Next.js app
+CMD ["npm", "run", "start"]
