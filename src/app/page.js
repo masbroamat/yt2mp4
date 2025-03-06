@@ -10,16 +10,16 @@ import { Inter } from "next/font/google";
 const inter = Inter({ subsets: ["latin"] });
 
 const affiliateLinks = [
-  "https://s.shopee.com.my/6pmBySHJHe",
-  "https://s.shopee.com.my/3Astbhs9W6",
-  "https://s.shopee.com.my/7fLIy3KdM2",
-  "https://s.shopee.com.my/6AWVBJPwLy",
-  "https://s.shopee.com.my/1qNW1MYOzg",
-  "https://s.shopee.com.my/7KiSZTytlq",
-  "https://s.shopee.com.my/9Umx9TiPRB",
-  "https://s.shopee.com.my/1VkfcmurUe",
-  "https://s.shopee.com.my/7V1slp6Be5",
-  "https://s.shopee.com.my/vrq380O3",
+  "https://s.shopee.com.my/w2z6n6HR",
+  "https://s.shopee.com.my/VsJa1lCGY",
+  "https://s.shopee.com.my/LYtNilpbX",
+  "https://s.shopee.com.my/qV9ydjvae",
+  "https://s.shopee.com.my/gBjmKkYvd",
+  "https://s.shopee.com.my/5faPjdTNIY",
+  "https://s.shopee.com.my/5ptpvwSjxb",
+  "https://s.shopee.com.my/60DG8FS6ce",
+  "https://s.shopee.com.my/6AWgKYRTHh",
+  "https://s.shopee.com.my/6Kq6WrQpwk",
 ];
 
 export default function Home() {
