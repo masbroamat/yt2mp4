@@ -35,8 +35,8 @@ Welcome to the **YouTube Video Downloader** – a fast, free, and easy-to-use we
 ### 1. Clone the repository
 
 ```bash
-git clone <repository-url>
-cd youtube-oauth-downloader
+git clone https://github.com/masbroamat/yt2mp4.git
+cd yt2mp4
 ```
 
 ### 2. Install dependencies
@@ -65,14 +65,6 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 
 - **Video Quality Options Not Appearing**: Check that yt-dlp is properly installed and accessible in your PATH
 - **Download Errors**: Ensure ffmpeg is installed and available in PATH for video processing
-- **Shorts URLs Not Working**: Make sure you're using the latest version which supports YouTube Shorts URLs
-
-### Debug Logs
-
-The application creates log files that can help diagnose issues:
-
-- `logs/conversions.log`: Tracks all video conversion attempts
-- Terminal output contains detailed logs of command execution
 
 ## Docker Deployment
 
